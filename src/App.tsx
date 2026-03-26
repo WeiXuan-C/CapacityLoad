@@ -36,7 +36,10 @@ import {
   Zap,
   Hash,
   FileText,
-  BarChart3
+  BarChart3,
+  CheckCircle2,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, sortTeams, DEFAULT_TEAM_ORDER, DEFAULT_TEAM_ORDER_VERSION } from './utils';
@@ -49,6 +52,16 @@ import ExceptionMonitoring from './components/ExceptionMonitoring';
 import { ProductionDemand, ProductionResource, StandardTime, ProcessCycle, AnalysisResult, SystemSettings, MonthlyTeamAnalysis } from './types';
 
 type Tab = 'analysis' | 'demand' | 'resources' | 'standard-time' | 'process-cycle' | 'calendar' | 'settings' | 'exceptions';
+
+interface SystemMessage {
+  id: string;
+  type: 'success' | 'warning' | 'info' | 'error';
+  title: string;
+  content: string;
+  time: Date;
+  isRead: boolean;
+  category: 'import' | 'exception' | 'system';
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('analysis');
@@ -67,6 +80,28 @@ export default function App() {
   const [isConfirmingClearDemands, setIsConfirmingClearDemands] = useState(false);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [notifications, setNotifications] = useState<{ id: string; type: 'success' | 'error' | 'info'; message: string }[]>([]);
+  const [systemMessages, setSystemMessages] = useState<SystemMessage[]>([]);
+  const [isBellOpen, setIsBellOpen] = useState(false);
+  const bellRef = useRef<HTMLDivElement>(null);
+
+  const addSystemMessage = (message: Omit<SystemMessage, 'id' | 'time' | 'isRead'>) => {
+    const newMessage: SystemMessage = {
+      ...message,
+      id: Math.random().toString(36).substr(2, 9),
+      time: new Date(),
+      isRead: false
+    };
+    setSystemMessages(prev => [newMessage, ...prev].slice(0, 50));
+  };
+
+  const markAllAsRead = () => {
+    setSystemMessages(prev => prev.map(m => ({ ...m, isRead: true })));
+  };
+
+  const clearMessages = () => {
+    setSystemMessages([]);
+  };
+
   const [demands, setDemands] = useState<ProductionDemand[]>([]);
   const [showDemandsList, setShowDemandsList] = useState<boolean>(false);
   const [searchProcessCycle, setSearchProcessCycle] = useState('');
@@ -281,6 +316,40 @@ export default function App() {
   // Real capacity analysis calculation logic
   const analysisResult = useCapacityAnalysis(demands, resources, standardTimes, settings, processCycles);
 
+  // Monitor exceptions for system messages
+  const lastExceptionCount = useRef({ rg: 0, op: 0 });
+  useEffect(() => {
+    const rgCount = analysisResult.exceptions.unmatchedResourceGroups.length;
+    const opCount = analysisResult.exceptions.unmatchedOperations.length;
+
+    if (rgCount > 0 || opCount > 0) {
+      if (rgCount !== lastExceptionCount.current.rg || opCount !== lastExceptionCount.current.op) {
+        const parts = [];
+        if (rgCount > 0) parts.push(`${rgCount} 个未匹配班组`);
+        if (opCount > 0) parts.push(`${opCount} 个未匹配工序周期`);
+        
+        addSystemMessage({
+          type: 'warning',
+          title: '数据异常监控通知',
+          content: `系统检测到 ${parts.join('和')}。请及时在异常监控模块查看并处理。`,
+          category: 'exception'
+        });
+      }
+    }
+    lastExceptionCount.current = { rg: rgCount, op: opCount };
+  }, [analysisResult.exceptions]);
+
+  // Close bell dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (bellRef.current && !bellRef.current.contains(event.target as Node)) {
+        setIsBellOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const navItems = [
     { id: 'analysis', label: '总览看板', icon: LayoutGrid },
     { id: 'demand', label: '生产需求', icon: ClipboardList },
@@ -469,6 +538,12 @@ export default function App() {
                                 if (chunk.length === 0) {
                                   setDemands(allFormattedData);
                                   addNotification('success', `导入成功！已成功验证并导入 ${allFormattedData.length} 行数据。`);
+                                  addSystemMessage({
+                                    type: 'success',
+                                    title: '大规模数据导入结果',
+                                    content: `成功导入 ${allFormattedData.length} 条生产需求数据。系统已自动完成产能负荷分析。`,
+                                    category: 'import'
+                                  });
                                   setIsImportingDemands(false);
                                   return;
                                 }
@@ -2168,8 +2243,114 @@ export default function App() {
           </div>
         </div>
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-4 text-slate-400">
-            <Bell size={18} className="cursor-pointer hover:text-white transition-colors" />
+          <div className="flex items-center gap-4 text-slate-400 relative" ref={bellRef}>
+            <div 
+              className="relative cursor-pointer hover:text-white transition-colors p-1"
+              onClick={() => setIsBellOpen(!isBellOpen)}
+            >
+              <Bell size={18} />
+              {systemMessages.filter(m => !m.isRead).length > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 bg-red-500 text-white text-[8px] font-bold rounded-full border border-slate-900 flex items-center justify-center">
+                  {systemMessages.filter(m => !m.isRead).length > 9 ? '9+' : systemMessages.filter(m => !m.isRead).length}
+                </span>
+              )}
+            </div>
+
+            <AnimatePresence>
+              {isBellOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50"
+                >
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                      通知中心
+                      {systemMessages.filter(m => !m.isRead).length > 0 && (
+                        <span className="bg-red-100 text-red-600 text-[10px] px-1.5 py-0.5 rounded-full">
+                          {systemMessages.filter(m => !m.isRead).length}
+                        </span>
+                      )}
+                    </h4>
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={markAllAsRead}
+                        className="text-[10px] text-blue-600 hover:underline font-medium"
+                      >
+                        全部已读
+                      </button>
+                      <button 
+                        onClick={clearMessages}
+                        className="text-[10px] text-slate-400 hover:text-red-500 font-medium"
+                      >
+                        清空
+                      </button>
+                    </div>
+                  </div>
+                  <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                    {systemMessages.length === 0 ? (
+                      <div className="p-10 text-center">
+                        <Bell size={32} className="mx-auto text-slate-200 mb-2" />
+                        <p className="text-sm text-slate-400">暂无通知消息</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-50">
+                        {systemMessages.map(msg => (
+                          <div 
+                            key={msg.id} 
+                            className={cn(
+                              "p-4 hover:bg-slate-50 transition-colors cursor-default relative",
+                              !msg.isRead && "bg-blue-50/30"
+                            )}
+                          >
+                            {!msg.isRead && (
+                              <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />
+                            )}
+                            <div className="flex gap-3">
+                              <div className={cn(
+                                "w-8 h-8 rounded-full shrink-0 flex items-center justify-center",
+                                msg.type === 'success' ? "bg-emerald-50 text-emerald-600" :
+                                msg.type === 'warning' ? "bg-amber-50 text-amber-600" :
+                                msg.type === 'error' ? "bg-red-50 text-red-600" :
+                                "bg-blue-50 text-blue-600"
+                              )}>
+                                {msg.type === 'success' ? <CheckCircle2 size={14} /> :
+                                 msg.type === 'warning' ? <AlertTriangle size={14} /> :
+                                 msg.type === 'error' ? <AlertCircle size={14} /> :
+                                 <Info size={14} />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <p className="text-xs font-bold text-slate-900 truncate">{msg.title}</p>
+                                  <span className="text-[10px] text-slate-400 shrink-0">
+                                    {msg.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2">
+                                  {msg.content}
+                                </p>
+                                {msg.category === 'exception' && (
+                                  <button 
+                                    onClick={() => {
+                                      setActiveTab('exceptions');
+                                      setIsBellOpen(false);
+                                    }}
+                                    className="mt-2 text-[10px] text-blue-600 font-medium hover:underline flex items-center gap-1"
+                                  >
+                                    立即处理 <ChevronRight size={10} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
           <div className="flex items-center gap-3 pl-6 border-l border-slate-700">
             <div className="text-right">
