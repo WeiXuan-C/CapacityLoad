@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, Download, Database, Clock, FileText } from 'lucide-react';
+import { AlertCircle, Download, Network, Clock, FileText } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { AnalysisResult } from '../types';
 import { cn } from '../utils';
@@ -51,7 +51,7 @@ export default function ExceptionMonitoring({ analysisResult }: ExceptionMonitor
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                <Database size={24} />
+                <Network size={24} />
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500">未匹配班组</p>

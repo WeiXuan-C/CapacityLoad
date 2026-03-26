@@ -5,6 +5,7 @@ import { FixedSizeList } from 'react-window';
 import { 
   LayoutGrid, 
   ClipboardList, 
+  Network, 
   Users, 
   Timer, 
   Settings, 
@@ -283,7 +284,7 @@ export default function App() {
   const navItems = [
     { id: 'analysis', label: '总览看板', icon: LayoutGrid },
     { id: 'demand', label: '生产需求', icon: ClipboardList },
-    { id: 'resources', label: '生产资源', icon: Users },
+    { id: 'resources', label: '资源分组', icon: Network },
     { id: 'standard-time', label: '标准工时', icon: Timer },
     { id: 'process-cycle', label: '工序周期', icon: Clock },
     { id: 'calendar', label: '生产日历', icon: Calendar },
@@ -715,7 +716,7 @@ export default function App() {
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                    <Users size={22} />
+                    <Network size={22} />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-slate-900">资源分组</h3>
@@ -900,9 +901,9 @@ export default function App() {
                         }
 
                         const workbook = XLSX.utils.book_new();
-                        XLSX.utils.book_append_sheet(workbook, worksheet, "生产资源");
-                        XLSX.writeFile(workbook, `生产资源明细_${new Date().toISOString().split('T')[0]}.xlsx`);
-                        addNotification('success', '生产资源明细已成功导出。');
+                        XLSX.utils.book_append_sheet(workbook, worksheet, "资源分组");
+                        XLSX.writeFile(workbook, `资源分组明细_${new Date().toISOString().split('T')[0]}.xlsx`);
+                        addNotification('success', '资源分组明细已成功导出。');
                       }}
                       className="flex items-center gap-2 px-3 py-1.5 text-slate-600 hover:bg-white hover:text-emerald-600 rounded-lg transition-all font-medium text-sm"
                     >
@@ -1133,7 +1134,7 @@ export default function App() {
                     <Timer size={22} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900">标准工时列表</h3>
+                    <h3 className="text-xl font-bold text-slate-900">标准工时</h3>
                     <p className="text-sm text-slate-500">共 {standardTimes.length} 条记录</p>
                   </div>
                 </div>
@@ -1608,7 +1609,7 @@ export default function App() {
                     <Clock size={22} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900">工序周期列表</h3>
+                    <h3 className="text-xl font-bold text-slate-900">工序周期</h3>
                     <p className="text-sm text-slate-500">共 {processCycles.length} 条记录</p>
                   </div>
                 </div>

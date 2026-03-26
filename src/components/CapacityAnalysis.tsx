@@ -4,7 +4,7 @@ import {
   Line, ComposedChart, Cell, LabelList
 } from 'recharts';
 import ExcelJS from 'exceljs';
-import { Clock, Database, Activity, Download, Calendar, Users, Cpu, AlertTriangle, CheckCircle2, BarChart3, TrendingUp, Grid, Save, X, ListOrdered } from 'lucide-react';
+import { Hourglass, Factory, Activity, Download, Calendar, Users, Cpu, AlertTriangle, CheckCircle2, BarChart3, TrendingUp, Grid, Save, X, ListOrdered, Gauge } from 'lucide-react';
 import { formatNumber, cn, sortTeams } from '../utils';
 import { AnalysisResult, ProductionDemand, ProductionResource, SystemSettings, ProcessCycle } from '../types';
 
@@ -1231,7 +1231,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
               </div>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-              <Database size={24} />
+              <Hourglass size={24} />
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1250,7 +1250,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
               </div>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-              <Users size={24} />
+              <Factory size={24} />
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1271,7 +1271,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
               </div>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500">
-              <Activity size={24} />
+              <Gauge size={24} />
             </div>
           </div>
           <div className="flex items-center gap-2">
