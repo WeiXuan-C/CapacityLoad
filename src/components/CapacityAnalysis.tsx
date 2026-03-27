@@ -271,7 +271,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
 
     // 2. Operation De-duplication & Team Assignment
     const seenWorkOrderOps = new Set<string>();
-    const processedDemands: { team: string, componentCode: string, actualHours: number }[] = [];
+    const processedDemands: { team: string, partNumber: string, actualHours: number }[] = [];
 
     demands.forEach(d => {
       const opKey = d.workOrderOpNo;
@@ -279,7 +279,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
         const team = resourceToTeam.get(d.resourceGroupId) || '其他';
         processedDemands.push({
           team,
-          componentCode: d.componentCode || '未知',
+          partNumber: d.partNumber || d.componentCode || '未知',
           actualHours: d.actualHours || 0
         });
         return;
@@ -291,12 +291,12 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
       const team = resourceToTeam.get(d.resourceGroupId) || '其他';
       processedDemands.push({
         team,
-        componentCode: d.componentCode || '未知',
+        partNumber: d.partNumber || d.componentCode || '未知',
         actualHours: d.actualHours || 0
       });
     });
 
-    // 3. Grouping by Team and then by ComponentCode (No summing)
+    // 3. Grouping by Team and then by PartNumber (No summing)
     const teamGroups = new Map<string, Map<string, number>>();
     
     processedDemands.forEach(d => {
@@ -305,8 +305,8 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
       }
       const componentMap = teamGroups.get(d.team)!;
       const val = d.actualHours || 0;
-      if (!componentMap.has(d.componentCode) || val > componentMap.get(d.componentCode)!) {
-        componentMap.set(d.componentCode, val);
+      if (!componentMap.has(d.partNumber) || val > componentMap.get(d.partNumber)!) {
+        componentMap.set(d.partNumber, val);
       }
     });
 
@@ -449,7 +449,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
       });
 
       const seenWorkOrderOps = new Set<string>();
-      const processedDemands: { team: string, componentCode: string, actualHours: number }[] = [];
+      const processedDemands: { team: string, partNumber: string, actualHours: number }[] = [];
 
       demands.forEach(d => {
         const opKey = d.workOrderOpNo;
@@ -457,7 +457,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
           const team = resourceToTeam.get(d.resourceGroupId) || '其他';
           processedDemands.push({
             team,
-            componentCode: d.componentCode || '未知',
+            partNumber: d.partNumber || d.componentCode || '未知',
             actualHours: d.actualHours || 0
           });
           return;
@@ -469,7 +469,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
         const team = resourceToTeam.get(d.resourceGroupId) || '其他';
         processedDemands.push({
           team,
-          componentCode: d.componentCode || '未知',
+          partNumber: d.partNumber || d.componentCode || '未知',
           actualHours: d.actualHours || 0
         });
       });
@@ -481,8 +481,8 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
         }
         const componentMap = teamGroups.get(d.team)!;
         const val = d.actualHours || 0;
-        if (!componentMap.has(d.componentCode) || val > componentMap.get(d.componentCode)!) {
-          componentMap.set(d.componentCode, val);
+        if (!componentMap.has(d.partNumber) || val > componentMap.get(d.partNumber)!) {
+          componentMap.set(d.partNumber, val);
         }
       });
 

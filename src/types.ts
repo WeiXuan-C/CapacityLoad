@@ -10,6 +10,7 @@ export interface ProductionDemand {
   workOrderOpNo?: string;
   componentCode: string;
   componentDesc: string;
+  partNumber?: string;
   opNo: string;
   opCode: string;
   opDesc: string;
@@ -27,6 +28,7 @@ export interface ProductionDemand {
     workOrderOpNo?: string;
     componentCode: string;
     componentDesc: string;
+    partNumber?: string;
     opNo: string;
     opCode: string;
     opDesc: string;
