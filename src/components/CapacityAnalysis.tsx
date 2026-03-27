@@ -271,7 +271,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
 
     // 2. Operation De-duplication & Team Assignment
     const seenWorkOrderOps = new Set<string>();
-    const processedDemands: { team: string, partNumber: string, actualHours: number }[] = [];
+    const processedDemands: { team: string, partNumber: string, componentCode: string, actualHours: number }[] = [];
 
     demands.forEach(d => {
       const opKey = d.workOrderOpNo;
@@ -280,6 +280,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
         processedDemands.push({
           team,
           partNumber: d.partNumber || d.componentCode || '未知',
+          componentCode: d.componentCode || '未知',
           actualHours: d.actualHours || 0
         });
         return;
@@ -292,12 +293,13 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
       processedDemands.push({
         team,
         partNumber: d.partNumber || d.componentCode || '未知',
+        componentCode: d.componentCode || '未知',
         actualHours: d.actualHours || 0
       });
     });
 
     // 3. Grouping by Team and then by PartNumber (No summing)
-    const teamGroups = new Map<string, Map<string, number>>();
+    const teamGroups = new Map<string, Map<string, { hours: number, componentCode: string }>>();
     
     processedDemands.forEach(d => {
       if (!teamGroups.has(d.team)) {
@@ -305,8 +307,9 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
       }
       const componentMap = teamGroups.get(d.team)!;
       const val = d.actualHours || 0;
-      if (!componentMap.has(d.partNumber) || val > componentMap.get(d.partNumber)!) {
-        componentMap.set(d.partNumber, val);
+      const existing = componentMap.get(d.partNumber);
+      if (!existing || val > existing.hours) {
+        componentMap.set(d.partNumber, { hours: val, componentCode: d.componentCode });
       }
     });
 
@@ -316,9 +319,10 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
     return sortedTeamNames.map(teamName => {
       const componentMap = teamGroups.get(teamName)!;
       const data = Array.from(componentMap.entries())
-        .map(([name, value]) => ({
+        .map(([name, info]) => ({
           name,
-          value: Number(value.toFixed(2))
+          componentCode: info.componentCode,
+          value: Number(info.hours.toFixed(2))
         }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 10);
@@ -449,7 +453,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
       });
 
       const seenWorkOrderOps = new Set<string>();
-      const processedDemands: { team: string, partNumber: string, actualHours: number }[] = [];
+      const processedDemands: { team: string, partNumber: string, componentCode: string, actualHours: number }[] = [];
 
       demands.forEach(d => {
         const opKey = d.workOrderOpNo;
@@ -458,6 +462,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
           processedDemands.push({
             team,
             partNumber: d.partNumber || d.componentCode || '未知',
+            componentCode: d.componentCode || '未知',
             actualHours: d.actualHours || 0
           });
           return;
@@ -470,28 +475,31 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
         processedDemands.push({
           team,
           partNumber: d.partNumber || d.componentCode || '未知',
+          componentCode: d.componentCode || '未知',
           actualHours: d.actualHours || 0
         });
       });
 
-      const teamGroups = new Map<string, Map<string, number>>();
+      const teamGroups = new Map<string, Map<string, { hours: number, componentCode: string }>>();
       processedDemands.forEach(d => {
         if (!teamGroups.has(d.team)) {
           teamGroups.set(d.team, new Map());
         }
         const componentMap = teamGroups.get(d.team)!;
         const val = d.actualHours || 0;
-        if (!componentMap.has(d.partNumber) || val > componentMap.get(d.partNumber)!) {
-          componentMap.set(d.partNumber, val);
+        const existing = componentMap.get(d.partNumber);
+        if (!existing || val > existing.hours) {
+          componentMap.set(d.partNumber, { hours: val, componentCode: d.componentCode });
         }
       });
 
       const fullTop10 = allTeams.map(teamName => {
         const componentMap = teamGroups.get(teamName) || new Map();
         const data = Array.from(componentMap.entries())
-          .map(([name, value]) => ({
+          .map(([name, info]) => ({
             name,
-            value: Number(value.toFixed(2))
+            componentCode: info.componentCode,
+            value: Number(info.hours.toFixed(2))
           }))
           .sort((a, b) => b.value - a.value)
           .slice(0, 10);
@@ -655,7 +663,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
 
       // --- Sheet 4: 料号工时排名 ---
       const top10Sheet = workbook.addWorksheet('料号工时排名');
-      const top10HeaderRow = ['班组', '排名', '料号', '单件工时 (MIN)'];
+      const top10HeaderRow = ['班组', '排名', '物料编码', '料号', '单件工时 (MIN)'];
       const top10Header = top10Sheet.addRow(top10HeaderRow);
       top10Header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       top10Header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
@@ -666,6 +674,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
           const row = top10Sheet.addRow([
             teamData.team,
             index + 1,
+            item.componentCode,
             item.name,
             item.value
           ]);
@@ -685,8 +694,9 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
 
       top10Sheet.getColumn(1).width = 20;
       top10Sheet.getColumn(2).width = 10;
-      top10Sheet.getColumn(3).width = 30;
-      top10Sheet.getColumn(4).width = 20;
+      top10Sheet.getColumn(3).width = 25;
+      top10Sheet.getColumn(4).width = 25;
+      top10Sheet.getColumn(5).width = 20;
 
       // --- Sheet 5: 需求工时Top10（峰值） ---
       const peakSheet = workbook.addWorksheet('需求工时Top10（峰值）');
@@ -695,9 +705,10 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
         '峰值月份', 
         '排名', 
         '工单号', 
-        '组件料号编码', 
+        '物料编码', 
+        '料号', 
         '工序', 
-        '交付日期', 
+        '交货日期', 
         '未完成数量', 
         '需求工时(H)', 
         '工时占比'
@@ -734,6 +745,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
             index + 1,
             demand.orderNo,
             demand.componentCode,
+            demand.partNumber || '-',
             demand.opDesc,
             demand.dueDate,
             demand.uncompletedQty,
@@ -770,12 +782,13 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
       peakSheet.getColumn(2).width = 15; // 峰值月份
       peakSheet.getColumn(3).width = 8;  // 排名
       peakSheet.getColumn(4).width = 20; // 工单号
-      peakSheet.getColumn(5).width = 25; // 组件料号编码
-      peakSheet.getColumn(6).width = 20; // 工序
-      peakSheet.getColumn(7).width = 15; // 交付日期
-      peakSheet.getColumn(8).width = 12; // 未完成数量
-      peakSheet.getColumn(9).width = 15; // 需求工时
-      peakSheet.getColumn(10).width = 12; // 工时占比
+      peakSheet.getColumn(5).width = 25; // 物料编码
+      peakSheet.getColumn(6).width = 25; // 料号
+      peakSheet.getColumn(7).width = 20; // 工序
+      peakSheet.getColumn(8).width = 15; // 交货日期
+      peakSheet.getColumn(9).width = 12; // 未完成数量
+      peakSheet.getColumn(10).width = 15; // 需求工时
+      peakSheet.getColumn(11).width = 12; // 工时占比
 
       // --- Finalize and Download ---
       const buffer = await workbook.xlsx.writeBuffer();
@@ -867,7 +880,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
       const worksheet = workbook.addWorksheet('料号工时排名');
       
       // Header Row
-      const headerRow = ['班组', '排名', '料号', '单件工时 (MIN)'];
+      const headerRow = ['班组', '排名', '物料编码', '料号', '单件工时 (MIN)'];
       const header = worksheet.addRow(headerRow);
       header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } }; // Indigo 600 (Matches Dashboard)
@@ -878,6 +891,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
           const row = worksheet.addRow([
             teamData.team,
             index + 1,
+            item.componentCode,
             item.name,
             item.value
           ]);
@@ -898,8 +912,9 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
 
       worksheet.getColumn(1).width = 20;
       worksheet.getColumn(2).width = 10;
-      worksheet.getColumn(3).width = 30;
-      worksheet.getColumn(4).width = 20;
+      worksheet.getColumn(3).width = 25;
+      worksheet.getColumn(4).width = 25;
+      worksheet.getColumn(5).width = 20;
     } else {
       // Standard Export - Transposed Data
       const worksheet = workbook.addWorksheet('产能分析明细');
@@ -1662,9 +1677,10 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
                   <tr>
                     <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider w-16 text-center border-b border-slate-200">排名</th>
                     <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">工单号</th>
-                    <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">组件物料编码</th>
+                    <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">物料编码</th>
+                    <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">料号</th>
                     <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">工序</th>
-                    <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">交付日期</th>
+                    <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">交货日期</th>
                     <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right border-b border-slate-200">未完成数量</th>
                     <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right border-b border-slate-200">需求工时(H)</th>
                   </tr>
@@ -1689,6 +1705,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
                         </td>
                         <td className="py-4 px-6 text-sm text-slate-800">{demand.orderNo}</td>
                         <td className="py-4 px-6 text-sm font-mono text-slate-600">{demand.componentCode}</td>
+                        <td className="py-4 px-6 text-sm font-mono text-slate-600">{demand.partNumber || '-'}</td>
                         <td className="py-4 px-6 text-sm text-slate-500">{demand.opDesc}</td>
                         <td className="py-4 px-6 text-sm text-slate-500 font-mono">{demand.dueDate}</td>
                         <td className="py-4 px-6 text-sm text-slate-600 text-right font-mono">{formatNumber(demand.uncompletedQty, 0)}</td>
@@ -1697,7 +1714,7 @@ export default function CapacityAnalysis({ data, demands, resources, processCycl
                     );
                   }) : (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-400 text-sm">
+                      <td colSpan={8} className="py-12 text-center text-slate-400 text-sm">
                         暂无需求数据
                       </td>
                     </tr>
